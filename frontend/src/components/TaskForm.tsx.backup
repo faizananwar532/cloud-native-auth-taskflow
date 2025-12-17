@@ -1,0 +1,282 @@
+import React, { useState } from 'react';
+import { Task } from '../types';
+import { Calendar, Clock, AlertCircle, X, Save, Plus, CheckCircle, Zap, Star } from 'lucide-react';
+
+interface TaskFormProps {
+  onSubmit: (task: Omit<Task, 'id' | 'userId' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  onCancel: () => void;
+  initialTask?: Partial<Task>;
+  isEditing?: boolean;
+}
+
+const TaskForm: React.FC<TaskFormProps> = ({ onSubmit, onCancel, initialTask, isEditing = false }) => {
+  const [formData, setFormData] = useState({
+    title: initialTask?.title || '',
+    description: initialTask?.description || '',
+    dueDate: initialTask?.dueDate ? initialTask.dueDate.split('T')[0] : '',
+    priority: initialTask?.priority || 'medium',
+    status: initialTask?.status || 'pending'
+  });
+  const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<{[key: string]: string}>({});
+  const [touched, setTouched] = useState<{[key: string]: boolean}>({});
+
+  const validateForm = () => {
+    const newErrors: {[key: string]: string} = {};
+    
+    if (!formData.title.trim()) {
+      newErrors.title = 'Task title is required';
+    } else if (formData.title.trim().length < 3) {
+      newErrors.title = 'Task title must be at least 3 characters';
+    }
+    
+    if (formData.description && formData.description.length > 500) {
+      newErrors.description = 'Description must be less than 500 characters';
+    }
+    
+    if (formData.dueDate) {
+      const dueDate = new Date(formData.dueDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      if (dueDate < today) {
+        newErrors.dueDate = 'Due date cannot be in the past';
+      }
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+    
+    setLoading(true);
+
+    try {
+      await onSubmit({
+        ...formData,
+        dueDate: formData.dueDate ? new Date(formData.dueDate).toISOString() : undefined
+      });
+    } catch (error) {
+      console.error('Error submitting task:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name } = e.target;
+    setTouched(prev => ({ ...prev, [name]: true }));
+    validateForm();
+  };
+
+  const getPriorityIcon = (priority: string) => {
+    switch (priority) {
+      case 'high': return <Zap className="h-4 w-4" />;
+      case 'medium': return <Star className="h-4 w-4" />;
+      case 'low': return <CheckCircle className="h-4 w-4" />;
+      default: return <Star className="h-4 w-4" />;
+    }
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'high': return 'text-red-600 bg-red-50 border-red-200';
+      case 'medium': return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+      case 'low': return 'text-green-600 bg-green-50 border-green-200';
+      default: return 'text-gray-600 bg-gray-50 border-gray-200';
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-md overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+      <div className="card-beautiful w-full max-w-lg scale-in">
+        <div className="p-8">
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center">
+              <div className="p-3 bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl mr-4 shadow-lg">
+                {isEditing ? <Save className="h-6 w-6 text-white" /> : <Plus className="h-6 w-6 text-white" />}
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {isEditing ? 'Edit Task' : 'Create New Task'}
+                </h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  {isEditing ? 'Update your task details' : 'Fill in the details to create a new task'}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={onCancel}
+              className="p-3 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-2xl transition-all duration-200 hover:scale-110 group"
+            >
+              <X className="h-5 w-5 group-hover:rotate-90 transition-transform duration-200" />
+            </button>
+          </div>
+          
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="form-group">
+              <label htmlFor="title" className="block text-sm font-semibold text-gray-700 mb-3">
+                Task Title *
+              </label>
+              <input
+                type="text"
+                id="title"
+                name="title"
+                required
+                value={formData.title}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                className={`input-beautiful ${errors.title && touched.title ? 'error-state' : ''} ${!errors.title && touched.title && formData.title ? 'success-state' : ''}`}
+                placeholder="What needs to be done?"
+              />
+              {errors.title && touched.title && (
+                <div className="error-message mt-2">
+                  <AlertCircle className="h-4 w-4" />
+                  {errors.title}
+                </div>
+              )}
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="description" className="block text-sm font-semibold text-gray-700 mb-3">
+                Description
+                <span className="text-xs text-gray-500 ml-2">({formData.description.length}/500)</span>
+              </label>
+              <textarea
+                id="description"
+                name="description"
+                rows={4}
+                value={formData.description}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition-all duration-200 backdrop-filter backdrop-blur-sm ${
+                  errors.description && touched.description 
+                    ? 'border-red-300 bg-red-50' 
+                    : !errors.description && touched.description && formData.description
+                    ? 'border-green-300 bg-green-50'
+                    : 'border-gray-200 bg-white/90'
+                }`}
+                placeholder="Add more details about this task..."
+              />
+              {errors.description && touched.description && (
+                <div className="error-message mt-2">
+                  <AlertCircle className="h-4 w-4" />
+                  {errors.description}
+                </div>
+              )}
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="dueDate" className="block text-sm font-semibold text-gray-700 mb-3">
+                Due Date
+              </label>
+              <input
+                type="date"
+                id="dueDate"
+                name="dueDate"
+                value={formData.dueDate}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                className={`input-beautiful ${errors.dueDate && touched.dueDate ? 'error-state' : ''} ${!errors.dueDate && touched.dueDate && formData.dueDate ? 'success-state' : ''}`}
+              />
+              {errors.dueDate && touched.dueDate && (
+                <div className="error-message mt-2">
+                  <AlertCircle className="h-4 w-4" />
+                  {errors.dueDate}
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-6">
+              <div className="form-group">
+                <label htmlFor="priority" className="block text-sm font-semibold text-gray-700 mb-3">
+                  Priority Level
+                </label>
+                <div className="relative">
+                  <select
+                    id="priority"
+                    name="priority"
+                    value={formData.priority}
+                    onChange={handleChange}
+                    className="input-beautiful appearance-none pr-10"
+                  >
+                    <option value="low">Low Priority</option>
+                    <option value="medium">Medium Priority</option>
+                    <option value="high">High Priority</option>
+                  </select>
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                    <div className={`p-1 rounded-lg ${getPriorityColor(formData.priority)}`}>
+                      {getPriorityIcon(formData.priority)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="status" className="block text-sm font-semibold text-gray-700 mb-3">
+                  Current Status
+                </label>
+                <select
+                  id="status"
+                  name="status"
+                  value={formData.status}
+                  onChange={handleChange}
+                  className="input-beautiful"
+                >
+                  <option value="pending">Pending</option>
+                  <option value="in_progress">In Progress</option>
+                  <option value="completed">Completed</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-4 pt-6">
+              <button
+                type="button"
+                onClick={onCancel}
+                className="px-8 py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all duration-200 font-semibold hover:scale-105"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={loading || !formData.title.trim() || Object.keys(errors).some(key => errors[key])}
+                className="btn-beautiful px-8 py-3 disabled:opacity-50 disabled:cursor-not-allowed group"
+              >
+                {loading ? (
+                  <div className="flex items-center">
+                    <div className="spinner mr-2"></div>
+                    {isEditing ? 'Updating...' : 'Creating...'}
+                  </div>
+                ) : (
+                  <div className="flex items-center">
+                    {isEditing ? <Save className="h-5 w-5 mr-2" /> : <Plus className="h-5 w-5 mr-2" />}
+                    {isEditing ? 'Update Task' : 'Create Task'}
+                  </div>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default TaskForm;
