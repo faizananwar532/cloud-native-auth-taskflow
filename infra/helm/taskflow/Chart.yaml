@@ -1,0 +1,13 @@
+apiVersion: v2
+name: taskflow
+description: A Helm chart for Cloud Native Auth TaskFlow application
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+
+# PostgreSQL is now deployed as a custom resource using official postgres image
+# dependencies:
+#   - name: postgresql
+#     version: "12.12.10"
+#     repository: "https://charts.bitnami.com/bitnami"
+#     condition: postgresql.enabled

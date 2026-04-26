@@ -1,0 +1,40 @@
+Thank you for installing {{ .Chart.Name }}.
+
+Your release is named {{ .Release.Name }}.
+
+To learn more about the release, try:
+
+  $ helm status {{ .Release.Name }}
+  $ helm get all {{ .Release.Name }}
+
+{{- if .Values.ingress.enabled }}
+
+The application is accessible via Ingress:
+{{- range $host := .Values.ingress.hosts }}
+  {{- if $host.host }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host.host }}
+  {{- else }}
+  Access via your Ingress controller's external IP/hostname
+  {{- end }}
+{{- end }}
+
+To get the Ingress controller address:
+  $ kubectl get ingress {{ include "taskflow.fullname" . }}
+
+{{- else }}
+
+To access the frontend:
+  $ kubectl port-forward svc/{{ include "taskflow.fullname" . }}-frontend 8080:80
+
+To access the backend:
+  $ kubectl port-forward svc/{{ include "taskflow.fullname" . }}-backend 3001:3001
+
+{{- end }}
+
+{{- if .Values.postgresql.enabled }}
+
+PostgreSQL is deployed as part of this release.
+Database: {{ .Values.postgresql.auth.database }}
+User: {{ .Values.postgresql.auth.username }}
+
+{{- end }}
